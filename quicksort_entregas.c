@@ -192,15 +192,6 @@ void imprimir_fila(const Pacote *pacotes, int total) {
 
 
 
-/* =======================================================================
- * FUNCTION: demo_particao_trace
- *
- * Demonstra passo a passo como particionar() move i e j.
- * Usa array fixo [3,0,7,1,5,10,2,1,3] — valores sao prazo_dias.
- * Pivo = ultimo elemento (3). Mostra cada decisao e troca.
- * ======================================================================= */
-
-
 
 /* =======================================================================
  * FUNCTION: main
@@ -247,7 +238,9 @@ int main(void) {
     tmp = estado_quase[1]; estado_quase[1] = estado_quase[4]; estado_quase[4] = tmp;
     tmp = estado_quase[9]; estado_quase[9] = estado_quase[13]; estado_quase[13] = tmp;
 
-    /* ===== Cabecalho ===== */
+ 
+
+    
 
     printf("============================================================\n");
     printf("  SISTEMA DE ENTREGAS — QuickSort por Prazo de Entrega\n");
@@ -292,30 +285,6 @@ int main(void) {
         imprimir_fila(copia, DEMO_SIZE);
     }
 
-    /* ===== Tabela resumo ===== */
-
-    printf("\n============================================================\n");
-    printf("  RESUMO — Comparacoes por tipo de entrada (n=%d)\n", DEMO_SIZE);
-    printf("============================================================\n");
-    printf("\n  %-20s  %-14s  %s\n", "Tipo", "Comparacoes", "Comportamento");
-    printf("  %-20s  %-14s  %s\n",
-           "--------------------", "--------------", "-------------------");
-    const char *comportamento[] = {
-        "O(n log n) esperado",
-        "O(n^2) pior caso   ",
-        "O(n^2) pior caso   ",
-        "O(n log n) aprox.  ",
-    };
-    for (int s = 0; s < num_cenarios; s++) {
-        printf("  %-20s  %-14d  %s\n",
-               cenarios[s].nome,
-               comparacoes_por_cenario[s],
-               comportamento[s]);
-    }
-    printf("\n  Pior caso teorico  O(n^2): ~%d comparacoes\n",
-           DEMO_SIZE * DEMO_SIZE);
-    printf("  Melhor caso teorico O(n log n): ~%d comparacoes\n",
-           (int)(DEMO_SIZE * 3.9));  /* log2(15) ~ 3.9 */
-
+  
     return EXIT_SUCCESS;
 }

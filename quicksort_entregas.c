@@ -20,10 +20,12 @@
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include <time.h>
 
-#define DEMO_SIZE  15
-#define LARGE_SIZE 10000
+#define DEMO_SIZE 15
+
+static int num_comparacoes;
 
 /* -----------------------------------------------------------------------
  * STRUCT: Pacote
@@ -103,6 +105,7 @@ static int particionar(Pacote *pacotes, int inicio, int fim) {
     for (int j = inicio; j < fim; j++) {
         /* Se este pacote e mais urgente (prazo menor ou igual ao pivo),
          * move ele para o lado esquerdo */
+        num_comparacoes++;
         if (pacotes[j].prazo_dias <= prazo_pivo)  {
             i++;
             /* Troca pacotes[i] com pacotes[j] diretamente, sem funcao auxiliar */
@@ -187,107 +190,132 @@ void imprimir_fila(const Pacote *pacotes, int total) {
 }
 
 
+
+
 /* =======================================================================
- * FUNCTION: gerar_pacotes_aleatorios
+ * FUNCTION: demo_particao_trace
  *
- * Gera `total` pacotes com dados aleatorios para o teste de escala.
- *
- * POR QUE: 15 pacotes e facil de ler, mas pequeno demais para medir
- * o tempo real do algoritmo. Com 10.000 pacotes podemos ver a velocidade
- * do QuickSort comparado a algoritmos mais lentos como Bubble Sort.
+ * Demonstra passo a passo como particionar() move i e j.
+ * Usa array fixo [3,0,7,1,5,10,2,1,3] — valores sao prazo_dias.
+ * Pivo = ultimo elemento (3). Mostra cada decisao e troca.
  * ======================================================================= */
-void gerar_pacotes_aleatorios(Pacote *pacotes, int total) {
-    const char *cidades[] = {
-        "Sao Paulo", "Rio de Janeiro", "Curitiba", "Salvador",
-        "Fortaleza", "Manaus",         "Recife",   "Porto Alegre"
-    };
 
-    srand((unsigned int)time(NULL));
-
-    for (int i = 0; i < total; i++) {
-        pacotes[i].id         = i + 1;
-        pacotes[i].prazo_dias = rand() % 15;        /* 0 a 14 dias */
-        pacotes[i].peso_kg    = 0.5f + (rand() % 200) / 10.0f; /* 0.5 a 20.5 kg */
-        int cidade_idx = rand() % 8;
-        /* snprintf garante que nao ultrapassa o tamanho do campo destino */
-        snprintf(pacotes[i].destino, sizeof(pacotes[i].destino),
-                 "%s", cidades[cidade_idx]);
-    }
-}
 
 
 /* =======================================================================
  * FUNCTION: main
  *
- * Executa dois testes:
+ * Compara QuickSort em 4 estados derivados do deposito:
  *
- *   DEMO 1 — 15 pacotes fixos e legiveis
- *     Mostra a fila ANTES e DEPOIS da ordenacao para voce verificar
- *     visualmente que os pacotes com "HOJE!" foram para o topo.
+ *   Aleatorio     — deposito na ordem original (como chegou)
+ *   Ordenado      — deposito ja ordenado por prazo (crescente)
+ *   Reverso       — deposito em ordem decrescente de prazo
+ *   Quase Ord.    — ordenado com 2 trocas aleatorias
  *
- *   DEMO 2 — 10.000 pacotes aleatorios
- *     Mede o tempo de ordenacao em milissegundos e verifica
- *     que o resultado esta correto (prazo nunca diminui da esquerda
- *     para a direita).
+ * Metrica: numero de comparacoes feitas pelo particionar().
+ * Com n=15, tempo e imperceptivel — comparacoes revelam o comportamento.
  * ======================================================================= */
 int main(void) {
 
-    /* ===================== DEMO 1: EXEMPLO LEGIVEL ==================== */
+
+    /* ===== Preparar os 4 estados a partir do deposito ===== */
+
+    Pacote estado_aleatorio[DEMO_SIZE];
+    Pacote estado_ordenado[DEMO_SIZE];
+    Pacote estado_reverso[DEMO_SIZE];
+    Pacote estado_quase[DEMO_SIZE];
+
+    /* Aleatorio = deposito original */
+    memcpy(estado_aleatorio, deposito, sizeof(deposito));
+
+    /* Ordenado = deposito ordenado por prazo */
+    memcpy(estado_ordenado, deposito, sizeof(deposito));
+    num_comparacoes = 0;
+    quicksort(estado_ordenado, 0, DEMO_SIZE - 1);
+
+    /* Reverso = ordenado invertido */
+    memcpy(estado_reverso, estado_ordenado, sizeof(deposito));
+    for (int i = 0, j = DEMO_SIZE - 1; i < j; i++, j--) {
+        Pacote tmp        = estado_reverso[i];
+        estado_reverso[i] = estado_reverso[j];
+        estado_reverso[j] = tmp;
+    }
+
+    /* Quase Ordenado = ordenado + 2 trocas */
+    memcpy(estado_quase, estado_ordenado, sizeof(deposito));
+    Pacote tmp;
+    tmp = estado_quase[1]; estado_quase[1] = estado_quase[4]; estado_quase[4] = tmp;
+    tmp = estado_quase[9]; estado_quase[9] = estado_quase[13]; estado_quase[13] = tmp;
+
+    /* ===== Cabecalho ===== */
 
     printf("============================================================\n");
     printf("  SISTEMA DE ENTREGAS — QuickSort por Prazo de Entrega\n");
+    printf("  Comparacao em 4 estados do deposito (%d pacotes)\n", DEMO_SIZE);
     printf("============================================================\n");
+    printf("\nMetrica: comparacoes feitas em particionar().\n");
+    printf("Pivo = ultimo elemento. Pior caso em arrays ja ordenados.\n");
 
-    printf("\n[ANTES] Pacotes em ordem aleatoria no deposito:\n");
-    imprimir_fila(deposito, DEMO_SIZE);
+    /* ===== Cenarios ===== */
 
-    /* Ordena os pacotes por prazo, do mais urgente para o menos urgente */
-    quicksort(deposito, 0, DEMO_SIZE - 1);
+    struct {
+        const char *nome;
+        const char *descricao;
+        Pacote     *dados;
+    } cenarios[] = {
+        {"ALEATORIO",     "deposito na ordem original",          estado_aleatorio},
+        {"ORDENADO",      "deposito crescente por prazo",        estado_ordenado },
+        {"REVERSO",       "deposito decrescente por prazo",      estado_reverso  },
+        {"QUASE ORDENADO","ordenado com 2 trocas (pos 1-4, 9-13)", estado_quase },
+    };
+    int num_cenarios = (int)(sizeof(cenarios) / sizeof(cenarios[0]));
 
-    printf("\n[DEPOIS] Pacotes ordenados por prazo (mais urgente primeiro):\n");
-    imprimir_fila(deposito, DEMO_SIZE);
+    /* Tabela resumo — preenchida apos rodar cada cenario */
+    int comparacoes_por_cenario[4];
 
-    printf("\n>> Pacotes com prazo HOJE estao no topo da fila.\n");
-    printf(">> Pacotes com prazo longo ficam para o final.\n");
+    for (int s = 0; s < num_cenarios; s++) {
+        Pacote copia[DEMO_SIZE];
+        memcpy(copia, cenarios[s].dados, sizeof(deposito));
 
-    /* ===================== DEMO 2: TESTE EM GRANDE ESCALA ============= */
+        printf("\n------------------------------------------------------------\n");
+        printf("  [%s] %s\n", cenarios[s].nome, cenarios[s].descricao);
+        printf("------------------------------------------------------------\n");
+
+        printf("\n  ANTES:\n");
+        imprimir_fila(copia, DEMO_SIZE);
+
+        num_comparacoes = 0;
+        quicksort(copia, 0, DEMO_SIZE - 1);
+        comparacoes_por_cenario[s] = num_comparacoes;
+
+        printf("\n  DEPOIS (%d comparacoes):\n", num_comparacoes);
+        imprimir_fila(copia, DEMO_SIZE);
+    }
+
+    /* ===== Tabela resumo ===== */
 
     printf("\n============================================================\n");
-    printf("  TESTE EM GRANDE ESCALA — %d pacotes aleatorios\n", LARGE_SIZE);
+    printf("  RESUMO — Comparacoes por tipo de entrada (n=%d)\n", DEMO_SIZE);
     printf("============================================================\n");
-
-    Pacote *grande = (Pacote *)malloc(LARGE_SIZE * sizeof(Pacote));
-    if (!grande) {
-        fprintf(stderr, "ERRO: sem memoria para %d pacotes\n", LARGE_SIZE);
-        return EXIT_FAILURE;
+    printf("\n  %-20s  %-14s  %s\n", "Tipo", "Comparacoes", "Comportamento");
+    printf("  %-20s  %-14s  %s\n",
+           "--------------------", "--------------", "-------------------");
+    const char *comportamento[] = {
+        "O(n log n) esperado",
+        "O(n^2) pior caso   ",
+        "O(n^2) pior caso   ",
+        "O(n log n) aprox.  ",
+    };
+    for (int s = 0; s < num_cenarios; s++) {
+        printf("  %-20s  %-14d  %s\n",
+               cenarios[s].nome,
+               comparacoes_por_cenario[s],
+               comportamento[s]);
     }
+    printf("\n  Pior caso teorico  O(n^2): ~%d comparacoes\n",
+           DEMO_SIZE * DEMO_SIZE);
+    printf("  Melhor caso teorico O(n log n): ~%d comparacoes\n",
+           (int)(DEMO_SIZE * 3.9));  /* log2(15) ~ 3.9 */
 
-    gerar_pacotes_aleatorios(grande, LARGE_SIZE);
-
-    clock_t inicio = clock();
-    quicksort(grande, 0, LARGE_SIZE - 1);
-    clock_t fim = clock();
-
-    double ms = 1000.0 * (double)(fim - inicio) / CLOCKS_PER_SEC;
-
-    /* Verifica se a ordenacao esta correta: prazo nunca deve diminuir */
-    int correto = 1;
-    for (int i = 0; i < LARGE_SIZE - 1; i++) {
-        if (grande[i].prazo_dias > grande[i + 1].prazo_dias) {
-            correto = 0;
-            break;
-        }
-    }
-
-    printf("\n%d pacotes ordenados em %.3f ms\n", LARGE_SIZE, ms);
-    printf("Verificacao: %s\n", correto ? "CORRETO" : "ERRO — nao ordenado!");
-
-    printf("\nPrimeiros 5 (prazo mais curto):\n");
-    imprimir_fila(grande, 5);
-
-    printf("\nUltimos 5 (prazo mais longo):\n");
-    imprimir_fila(grande + LARGE_SIZE - 5, 5);
-
-    free(grande);
     return EXIT_SUCCESS;
 }
